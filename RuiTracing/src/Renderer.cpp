@@ -1,5 +1,6 @@
 #include "Renderer.h"
 
+
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
 	{
@@ -11,6 +12,12 @@ namespace Utils {
 		uint32_t result = (a << 24) | (b << 16) | (g << 8) | r;
 		return result;
 	}
+}
+
+Renderer::Renderer(Camera camera)
+	: m_Camera(camera)
+{
+
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
@@ -30,22 +37,51 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 	m_ImageData = new uint32_t[width * height];
 }
 
+Camera& Renderer::GetCamera()
+{
+	return m_Camera;
+}
+
 void Renderer::Render()
 {
 	for (uint32_t y = 0; y < m_FinalImage->GetHeight(); y++)
 	{
 		for (uint32_t x = 0; x < m_FinalImage->GetWidth(); x++)
 		{
-			glm::vec2 coord = { (float)x / m_FinalImage->GetWidth(),(float)y / m_FinalImage->GetHeight() };
-			coord = coord * 2.0f - 1.0f; // -1 -> 1
+			glm::vec3 pixel_center = m_Camera.m_pixel00_loc + ((float)x * m_Camera.m_pixel_delta_u) + ((float)y * m_Camera.m_pixel_delta_v);
+			glm::vec3 ray_direction = pixel_center - m_Camera.m_center;
 
-			glm::vec4 color = PerPixel(coord);
+			Ray ray(m_Camera.m_center, ray_direction);
+			glm::vec4 color = RayColor(ray);
+
+			//glm::vec2 coord = { (float)x / m_FinalImage->GetWidth(),(float)y / m_FinalImage->GetHeight() };
+			//coord = coord * 2.0f - 1.0f; // -1 -> 1
+
+			//glm::vec4 color = PerPixel(coord);
 			color = glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
 			m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
 		}
 	}
 
 	m_FinalImage->SetData(m_ImageData);
+}
+
+float Renderer::HitSphere(const glm::vec3& center, double radius, const Ray& r)
+{
+	glm::vec3 oc = center - r.origin();
+	auto a = glm::dot(r.direction(), r.direction());
+	auto h = glm::dot(r.direction(), oc);
+	auto c = glm::dot(oc, oc) - radius * radius;
+	auto discriminant = h * h - a * c;
+
+	if (discriminant < 0)
+	{
+		return -1.0f;
+	}
+	else
+	{
+		return (h - glm::sqrt(discriminant)) / a;
+	}
 }
 
 glm::vec4 Renderer::PerPixel(glm::vec2 coord)
@@ -81,5 +117,22 @@ glm::vec4 Renderer::PerPixel(glm::vec2 coord)
 	sphereColor *= lightIntensity;
 
 	return glm::vec4(sphereColor, 1.0f);
+}
+
+glm::vec4 Renderer::RayColor(Ray& ray)
+{
+	glm::vec3 light_dir = glm::normalize(glm::vec3(-1, -1, -1));
+	glm::vec3 sphere_center = glm::vec3(0, 0, -1);
+	float t = HitSphere(sphere_center, 0.5f, ray);
+	if (t > 0.0f)
+	{
+		glm::vec3 N = glm::normalize(ray.at(t) - sphere_center);
+		float light_intensity = glm::max(glm::dot(N, -light_dir), 0.0f);
+		glm::vec3 sphereColor(1, 0, 1);
+		sphereColor *= light_intensity;
+		return glm::vec4(sphereColor, 1.0f);
+	}
+
+	return glm::vec4(0.2f, 0.5f, 0.8f, 1.0f);
 }
 

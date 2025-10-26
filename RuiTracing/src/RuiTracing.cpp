@@ -12,6 +12,11 @@ using namespace Walnut;
 class ExampleLayer : public Walnut::Layer
 {
 public:
+	ExampleLayer()
+		: m_Renderer(Camera(glm::vec3(0, 0, 0), 100.0f))
+	{
+	}
+
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
@@ -27,6 +32,8 @@ public:
 
 		m_ViewportWidth = ImGui::GetContentRegionAvail().x;
 		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
+
+		m_Renderer.GetCamera().Update(m_ViewportWidth);
 
 		/*ImGui::Text("Available: %.0f x %.0f", m_ViewportWidth, m_ViewportHeight);*/
 		auto image = m_Renderer.GetFinalImage();
