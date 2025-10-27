@@ -1,5 +1,14 @@
 #include "Renderer.h"
+#include "Instramentor.h"
 
+#define PROFILING 1
+#if PROFILING
+#define PROFILE_SCOPE(name) InstrumentationTimer timer##__LINE__(name)
+#define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCSIG__)
+#else
+#define PROFILE_FUNCTION()
+#define PROFILE_SCOPE(name)
+#endif
 
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
@@ -17,7 +26,10 @@ namespace Utils {
 Renderer::Renderer(Camera camera)
 	: m_Camera(camera)
 {
+}
 
+Renderer::~Renderer()
+{
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
@@ -44,6 +56,8 @@ Camera& Renderer::GetCamera()
 
 void Renderer::Render()
 {
+	PROFILE_FUNCTION();
+
 	for (uint32_t y = 0; y < m_FinalImage->GetHeight(); y++)
 	{
 		for (uint32_t x = 0; x < m_FinalImage->GetWidth(); x++)
@@ -56,8 +70,8 @@ void Renderer::Render()
 
 			//glm::vec2 coord = { (float)x / m_FinalImage->GetWidth(),(float)y / m_FinalImage->GetHeight() };
 			//coord = coord * 2.0f - 1.0f; // -1 -> 1
-
 			//glm::vec4 color = PerPixel(coord);
+
 			color = glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
 			m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRGBA(color);
 		}
@@ -86,6 +100,7 @@ float Renderer::HitSphere(const glm::vec3& center, double radius, const Ray& r)
 
 glm::vec4 Renderer::PerPixel(glm::vec2 coord)
 {
+
 	/* 其实这里就是用coords的坐标表示ray了，没有引入camera和vitrual viewport的概念 */
 	glm::vec3 rayOrigin(0.0f, 0.0f, 1.0f);
 	glm::vec3 rayDirection(coord.x, coord.y, -1.0f);
@@ -122,7 +137,7 @@ glm::vec4 Renderer::PerPixel(glm::vec2 coord)
 glm::vec4 Renderer::RayColor(Ray& ray)
 {
 	glm::vec3 light_dir = glm::normalize(glm::vec3(-1, -1, -1));
-	glm::vec3 sphere_center = glm::vec3(0, 0, -1);
+	glm::vec3 sphere_center = glm::vec3(0, 0, 0);
 	float t = HitSphere(sphere_center, 0.5f, ray);
 	if (t > 0.0f)
 	{
@@ -133,6 +148,6 @@ glm::vec4 Renderer::RayColor(Ray& ray)
 		return glm::vec4(sphereColor, 1.0f);
 	}
 
-	return glm::vec4(0.2f, 0.5f, 0.8f, 1.0f);
+	return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
 }
 

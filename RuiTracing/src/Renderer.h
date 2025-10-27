@@ -11,6 +11,7 @@ class Renderer
 {
 public:
 	Renderer(Camera camera);
+	~Renderer();
 
 	void OnResize(uint32_t width, uint32_t height);
 	Camera& GetCamera();

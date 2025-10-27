@@ -5,7 +5,17 @@
 #include "Walnut/Random.h"
 #include"Walnut/Timer.h"
 
+#include "Camera.h"
 #include "Renderer.h"
+
+#include "Instramentor.h"
+#define PROFILING 1
+#if PROFILING
+#define PROFILE_SOUPE(name) InstrumentationTimer timer##__LINE__(name)
+#define PROFILE_FUNCTION() PROFILE_SOUPE(__FUNCSIG__)
+#else
+#define PROFILE_FUNCTION()
+#endif
 
 using namespace Walnut;
 
@@ -13,12 +23,20 @@ class ExampleLayer : public Walnut::Layer
 {
 public:
 	ExampleLayer()
-		: m_Renderer(Camera(glm::vec3(0, 0, 0), 100.0f))
+		: m_Renderer(Camera(glm::vec3(0, 0, 1), 100.0f))
 	{
+		Instrumentor::Get().BeginSession("Profile");
+	}
+
+	~ExampleLayer()
+	{
+		Instrumentor::Get().EndSession();
 	}
 
 	virtual void OnUIRender() override
 	{
+		PROFILE_FUNCTION();
+
 		ImGui::Begin("Settings");
 		ImGui::Text("Last Render: %.3fms", m_LastRenderTime);
 		if (ImGui::Button("Render"))
@@ -54,6 +72,8 @@ public:
 
 	void Render()
 	{
+		PROFILE_FUNCTION();
+
 		Timer timer;
 
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
