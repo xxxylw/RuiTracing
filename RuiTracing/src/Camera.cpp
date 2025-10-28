@@ -1,37 +1,149 @@
 #include "Camera.h"
 
-Camera::Camera(glm::vec3 center, int image_width, float viewport_height, double focal_length, double aspect_ratio)
-	: m_center(center), m_image_width(image_width), m_viewport_height(viewport_height), m_aspect_ratio(aspect_ratio), m_focal_length(focal_length)
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
+#include "Walnut/Input/Input.h"
+
+using namespace Walnut;
+
+Camera::Camera(float verticalFVO, float nearClip, float farClip)
+	: m_VerticalFOV(verticalFVO), m_NearClip(nearClip), m_FarClip(farClip)
 {
-	m_image_height = int(image_width / aspect_ratio);
-	m_viewport_width = aspect_ratio * m_viewport_height;
-
-	auto viewport_u = glm::vec3(m_viewport_width, 0, 0);
-	auto viewport_v = glm::vec3(0, m_viewport_height, 0);
-
-	m_pixel_delta_u = viewport_u / m_image_width;
-	m_pixel_delta_v = viewport_v / m_image_height;
-
-	auto viewport_upper_left = center - glm::vec3(0, 0, m_focal_length) - viewport_u / 2.0f - viewport_v / 2.0f;
-
-	m_pixel00_loc = viewport_upper_left + 0.5f * (m_pixel_delta_u + m_pixel_delta_v);
+	m_ForwardDirection = glm::vec3(0, 0, -1);
+	m_Position = glm::vec3(0, 0, 3);
 }
 
-void Camera::Update(int image_width)
+void Camera::OnUpdate(float ts)
 {
-	if (image_width == m_image_width)
+	glm::vec2 mousePos = Input::GetMousePosition();
+	glm::vec2 delta = (mousePos - m_LastMousePosition) * 0.002f;
+	m_LastMousePosition = mousePos;
+
+	if (!Input::IsMouseButtonDown(MouseButton::Right))
+	{
+		Input::SetCursorMode(CursorMode::Normal);
+		return;
+	}
+
+	Input::SetCursorMode((CursorMode::Locked));
+
+	bool moved = false;
+
+	constexpr glm::vec3 upDirection(0.0f, 1.0f, 0.0f);
+	glm::vec3 rightDirection = glm::cross(m_ForwardDirection, upDirection);
+
+	float speed = 2.5f;
+
+	// Movement
+	if (Input::IsKeyDown(KeyCode::W))
+	{
+		m_Position += m_ForwardDirection * speed * ts;
+		moved = true;
+	}
+	else if (Input::IsKeyDown(KeyCode::S))
+	{
+		m_Position -= m_ForwardDirection * speed * ts;
+		moved = true;
+	}
+	if (Input::IsKeyDown(KeyCode::A))
+	{
+		m_Position -= rightDirection * speed * ts;
+		moved = true;
+	}
+	else if (Input::IsKeyDown(KeyCode::D))
+	{
+		m_Position += rightDirection * speed * ts;
+		moved = true;
+	}
+	if (Input::IsKeyDown(KeyCode::Q))
+	{
+		m_Position -= upDirection * speed * ts;
+		moved = true;
+	}
+	else if (Input::IsKeyDown(KeyCode::E))
+	{
+		m_Position += upDirection * speed * ts;
+		moved = true;
+	}
+
+	// Rotation
+	if (delta.x != 0.0f || delta.y != 0.0f)
+	{
+		float pitchDelta = delta.y * GetRotationSpeed();
+		float yawDelta = delta.x * GetRotationSpeed();
+
+		/*
+		→ 创建两个旋转四元数
+		→ 相乘得到一个总旋转
+		→ 用它旋转相机的前向向量
+		*/
+		glm::quat q = glm::normalize(
+			glm::angleAxis(-pitchDelta, rightDirection) *
+			glm::angleAxis(-yawDelta, glm::vec3(0.0f, 1.0f, 0.0f))
+		);
+		m_ForwardDirection = glm::rotate(q, m_ForwardDirection);
+
+		moved = true;
+	}
+
+	if (moved)
+	{
+		RecalculateView();
+		RecalculateRayDirections();
+	}
+}
+
+void Camera::OnResize(uint32_t width, uint32_t height)
+{
+	if (width == m_ViewportWidth && height == m_ViewportHeight)
 		return;
 
-	m_image_width = image_width;
-	m_image_height = int(m_image_width / m_aspect_ratio);
+	m_ViewportWidth = width;
+	m_ViewportHeight = height;
 
-	glm::vec3 viewport_u = glm::vec3(m_viewport_width, 0, 0);
-	glm::vec3 viewport_v = glm::vec3(0, m_viewport_height, 0);
+	RecalculateProjection();
+	RecalculateRayDirections();
+}
 
-	m_pixel_delta_u = viewport_u / (float)m_image_width;
-	m_pixel_delta_v = viewport_v / (float)m_image_height;
+float Camera::GetRotationSpeed()
+{
+	return 0.3f;
+}
 
-	auto viewport_upper_left = m_center - glm::vec3(0, 0, m_focal_length) - viewport_u / 2.0f - viewport_v / 2.0f;
+void Camera::RecalculateProjection()
+{
+	m_Projection = glm::perspectiveFov(
+		glm::radians(m_VerticalFOV),
+		(float)m_ViewportWidth, (float)m_ViewportHeight,
+		m_NearClip, m_FarClip
+	);
+	m_InverseProjection = glm::inverse(m_Projection);
+}
 
-	m_pixel00_loc = viewport_upper_left + 0.5f * (m_pixel_delta_u + m_pixel_delta_v);
+void Camera::RecalculateView()
+{
+	m_View = glm::lookAt(m_Position, m_Position + m_ForwardDirection/*摄像机正在“看”的世界空间点*/, glm::vec3(0, 1, 0));
+	m_InverseView = glm::inverse(m_View);
+}
+
+
+void Camera::RecalculateRayDirections()
+{
+	m_RayDirections.resize(m_ViewportWidth * m_ViewportHeight);
+
+	for (uint32_t y = 0; y < m_ViewportHeight; y++)
+	{
+		for (uint32_t x = 0; x < m_ViewportWidth; x++)
+		{
+			glm::vec2 coord = { (float)x / (float)m_ViewportWidth, (float)y / (float)m_ViewportHeight };
+			coord = coord * 2.0f - 1.0f; // -1 -> 1 (ndc space)
+
+			glm::vec4 target = m_InverseProjection * glm::vec4(coord.x, coord.y, 1, 1);
+			glm::vec3 rayDirection = glm::vec3(m_InverseView * glm::vec4(
+				glm::normalize(glm::vec3(target) / target.w), 0)); // World space
+			m_RayDirections[x + y * m_ViewportWidth] = rayDirection;
+		}
+	}
 }

@@ -1,22 +1,49 @@
 #pragma once
+
 #include <glm/glm.hpp>
-#include <memory>
+#include <vector>
 
 class Camera
 {
 public:
-	Camera(glm::vec3 center, int image_width, float viewport_height=2.0f, double focal_length=1.0f, double aspect_ratio=16 / (double)9);
-	void Update(int image_width);
+	Camera(float verticalFVO, float nearClip, float farClip);
 
-public:
-	float m_focal_length;
-	float m_aspect_ratio;
-	float m_image_width, m_image_height;
+	void OnUpdate(float ts);
+	void OnResize(uint32_t width, uint32_t height);
 
-	float m_viewport_height, m_viewport_width;
-	glm::vec3 m_center;
+	const glm::mat4& GetProjection() const {}
+	const glm::mat4& GetInverseProjection() const { return m_InverseProjection; }
+	const glm::mat4& GetView() const { return m_View; }
+	const glm::mat4& GetInverseView() const { return m_InverseView; }
 
-	glm::vec3 m_pixel_delta_u;
-	glm::vec3 m_pixel_delta_v;
-	glm::vec3 m_pixel00_loc;
+	const glm::vec3& GetPosition() const { return m_Position; }
+	const glm::vec3& GetDirection() const { return m_ForwardDirection; }
+
+	const std::vector<glm::vec3>& GetRayDirections() const { return m_RayDirections; }
+
+	float GetRotationSpeed();
+private:
+	void RecalculateProjection();
+	void RecalculateView();
+	void RecalculateRayDirections();
+
+private:
+	glm::mat4 m_Projection{ 1.0f };
+	glm::mat4 m_View{ 1.0f };
+	glm::mat4 m_InverseProjection{ 1.0f };
+	glm::mat4 m_InverseView{ 1.0f };
+
+	float m_VerticalFOV = 45.0f;
+	float m_NearClip = 0.1f;
+	float m_FarClip = 100.0f;
+
+	glm::vec3 m_Position{ 0.0f, 0.0f, 0.0f };
+	glm::vec3 m_ForwardDirection{ 0.0f, 0.0f, 0.0f };
+
+	// Cached ray directions
+	std::vector<glm::vec3> m_RayDirections;
+
+	glm::vec2 m_LastMousePosition{ 0.0f, 0.0f };
+
+	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 };

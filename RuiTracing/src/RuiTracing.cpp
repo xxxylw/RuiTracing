@@ -23,7 +23,7 @@ class ExampleLayer : public Walnut::Layer
 {
 public:
 	ExampleLayer()
-		: m_Renderer(Camera(glm::vec3(0, 0, 1), 100.0f))
+		: m_Camera(45.0f, 0.1f, 100.0f)
 	{
 		Instrumentor::Get().BeginSession("Profile");
 	}
@@ -31,6 +31,11 @@ public:
 	~ExampleLayer()
 	{
 		Instrumentor::Get().EndSession();
+	}
+
+	virtual void OnUpdate(float ts) override
+	{
+		m_Camera.OnUpdate(ts);
 	}
 
 	virtual void OnUIRender() override
@@ -50,8 +55,6 @@ public:
 
 		m_ViewportWidth = ImGui::GetContentRegionAvail().x;
 		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
-
-		m_Renderer.GetCamera().Update(m_ViewportWidth);
 
 		/*ImGui::Text("Available: %.0f x %.0f", m_ViewportWidth, m_ViewportHeight);*/
 		auto image = m_Renderer.GetFinalImage();
@@ -77,14 +80,17 @@ public:
 		Timer timer;
 
 		m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
-		m_Renderer.Render();
+		m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
+		m_Renderer.Render(m_Camera);
 		
 		m_LastRenderTime = timer.ElapsedMillis();
 	}
 private:
-	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
-	float m_LastRenderTime = 0.0f;
 	Renderer m_Renderer;
+	Camera m_Camera;
+	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
+	
+	float m_LastRenderTime = 0.0f;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
