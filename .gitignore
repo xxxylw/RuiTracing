@@ -8,6 +8,8 @@ bin-int/
 *.vcxproj.user
 *.vcxproj.filters
 *.sln
+*.pdf
+
 /RuiTracing/*.json
 
 # Exclude
