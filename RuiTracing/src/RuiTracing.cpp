@@ -72,6 +72,7 @@ public:
 
 		ImGui::Begin("Settings");
 		ImGui::Text("Last Render: %.3fms", m_LastRenderTime);
+		ImGui::Text("CPU Cores: %u", std::thread::hardware_concurrency());
 		if (ImGui::Button("Render"))
 		{
 			Render();

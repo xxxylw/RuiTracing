@@ -50,6 +50,9 @@ private:
 	uint32_t* m_ImageData = nullptr;
 
 	Settings m_Settings;
+
+	std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
+
 	glm::vec4* m_AccumulationData = nullptr;
 
 	uint32_t m_FrameIndex = 1;
