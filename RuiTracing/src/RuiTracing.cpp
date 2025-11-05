@@ -35,8 +35,14 @@ public:
 
 
 		Material& blueMat = m_Scene.Materials.emplace_back();
-		greenMat.Albedo = glm::vec3(0.2f, 0.5f, 0.8f);
-		greenMat.Roughness = 0.1f;
+		blueMat.Albedo = glm::vec3(0.2f, 0.5f, 0.8f);
+		blueMat.Roughness = 0.1f;
+
+		Material& orangeSphere = m_Scene.Materials.emplace_back();
+		orangeSphere.Albedo = glm::vec3(0.8f, 0.5f, 0.2f);
+		orangeSphere.Roughness = 0.1f;
+		orangeSphere.EmissionColor = orangeSphere.Albedo;
+		orangeSphere.EmissionPower = 2.0f;
 
 		{
 			Sphere sphere;
@@ -53,6 +59,14 @@ public:
 			sphere.MaterialIndex = 1;
 			m_Scene.Spheres.push_back(sphere);
 		}
+
+		{
+			Sphere sphere;
+			sphere.Position = { 2.0f, 0.0f, 0.0f };
+			sphere.Radius = 1.0f;
+			sphere.MaterialIndex = 2;
+			m_Scene.Spheres.push_back(sphere);
+		}
 	}
 
 	~ExampleLayer()
@@ -62,8 +76,11 @@ public:
 
 	virtual void OnUpdate(float ts) override
 	{
-		if (m_Camera.OnUpdate(ts))
+		if (m_Camera.OnUpdate(ts) || m_Update)
+		{
 			m_Renderer.ResetFrameIndex();
+			m_Update = false;
+		}
 	}
 
 	virtual void OnUIRender() override
@@ -92,8 +109,9 @@ public:
 
 			Sphere& sphere = m_Scene.Spheres[i];
 
-			ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.1f);
-			ImGui::DragInt("Material", &sphere.MaterialIndex, 1.0f, 0, (int)m_Scene.Materials.size() - 1);
+			m_Update |= ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.1f);
+			m_Update |= ImGui::DragFloat("Radius", &sphere.Radius, 0.1f);
+			m_Update |= ImGui::DragInt("Material", &sphere.MaterialIndex, 1.0f, 0, (int)m_Scene.Materials.size() - 1);
 			
 			ImGui::Separator();
 
@@ -105,9 +123,11 @@ public:
 			ImGui::PushID(i);
 
 			Material& material = m_Scene.Materials[i];
-			ImGui::ColorEdit3("Albedo", glm::value_ptr(material.Albedo));
-			ImGui::DragFloat("Roughness", &material.Roughness, 0.05f, 0.0f, 1.0f);
-			ImGui::DragFloat("Metallic", &material.Metallic, 0.05f, 0.0f, 1.0f);
+			m_Update |= ImGui::ColorEdit3("Albedo", glm::value_ptr(material.Albedo));
+			m_Update |= ImGui::DragFloat("Roughness", &material.Roughness, 0.05f, 0.0f, 1.0f);
+			m_Update |= ImGui::DragFloat("Metallic", &material.Metallic, 0.05f, 0.0f, 1.0f);
+			m_Update |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(material.EmissionColor));
+			m_Update |= ImGui::DragFloat("Emission Power", &material.EmissionPower, 0.05f, 0.0f, FLT_MAX);
 			
 			ImGui::Separator();
 
@@ -158,6 +178,8 @@ private:
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 	
 	float m_LastRenderTime = 0.0f;
+
+	bool m_Update = false;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
